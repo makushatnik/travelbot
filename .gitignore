@@ -1,0 +1,10 @@
+log.txt
+env
+venv
+.state-save
+__pycache__
+.idea
+.env
+*.log
+*.db
+*.pkl
