@@ -1,4 +1,4 @@
-## Telegram Bot
+## Travel Bot
 ### Commands
 - hello-world - Pings Telegram Bot. Used to check if its available.
 - lowprice - Узнать топ самых дешевых отелей в городе
@@ -6,12 +6,24 @@
 - bestdeal - Узнать топ отелей, наиболее подходящих по цене и расположению от центра
 - history - Узнать историю поиска отелей
 ### Settings
-You need your own Telegram API token.
-When you obtained one, you should do this steps:
+You need your own Telegram API token.\
+Also you need to be registered at the [Rapidapi.com](https://rapidapi.com/apidojo/api/hotels4/). You need to get host & api key there.
+
+When all preparations are done, you should do this steps:
 1. Clone the repository,
 2. Activate Virtual Environment in the project,
-3. Type the commands:
-```
-pip install -r requirements.txt
-python main.py
-```
+3. Create file .env with following variables:
+   * BOT_TOKEN
+   * RAPID_API_HOST
+   * RAPID_API_KEY
+   * DATABASE_NAME
+4. Create SQLite database:
+    ```
+    sqlite3
+    .open hotels.db
+    ```
+5. Type the commands:
+    ```
+    pip install -r requirements.txt
+    python main.py
+    ```

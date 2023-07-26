@@ -6,6 +6,7 @@ from datetime import datetime
 from db import DBUtil
 from env_receiver import EnvReceiver
 from api_requests import ApiRequests
+from lowprice import LowpriceStates
 from constants import *
 from telegram_bot_calendar import DetailedTelegramCalendar, LSTEP
 
@@ -15,17 +16,6 @@ dbo = DBUtil(env_receiver)
 logger = telebot.logger
 telebot.logger.setLevel(logging.DEBUG)
 api_requests = ApiRequests(env_receiver, logger)
-
-
-class LowpriceStates(StatesGroup):
-    get_city = State()
-    select_city = State()
-    start_date = State()
-    end_date = State()
-    hotel_count = State()
-    photo_needed = State()
-    photo_count = State()
-    send_request = State()
 
 
 def get_session() -> DBUtil:

@@ -62,11 +62,9 @@ class ApiRequests:
     def get_hotels(self, bot: TeleBot, chat_id: int, db: DBUtil):
         print('get_hotels func')
         req = db.get_current_request(chat_id)[0]
-        print('Settings =', req)
         start_date = datetime.strptime(req[5], DATE_FORMAT)
         end_date = datetime.strptime(req[6], DATE_FORMAT)
         time_diff = (end_date - start_date).days
-        print('TIMEDELTA = ', time_diff)
 
         headers = {
             "Content-Type": "application/json",
@@ -90,41 +88,45 @@ class ApiRequests:
             "filters": {"availableFilter": "SHOW_AVAILABLE_ONLY"}
         }
         print('PARAMS =', params)
-        response = requests.post(PROPERTIES_LIST_URL, headers=headers, params=params)
+        response = requests.post(PROPERTIES_LIST_URL, headers=headers, json=params)
         if not response.status_code == 200:
             self.logger.error(f'Status = {response.status_code}')
             return
 
         json_data = json.loads(response.text)
-        print('JSON DATA')
-        print(json_data)
         if json_data['data']:
-            resp_data = json_data.data
-            if resp_data.propertySearch and resp_data.propertySearch.properties:
-                props = resp_data.propertySearch.properties
+            resp_data = json_data['data']
+            if resp_data['propertySearch'] and resp_data['propertySearch']['properties']:
+                props = resp_data['propertySearch']['properties']
                 if len(props) == 0:
                     self.logger.error('No Properties at all!')
                     return
 
                 for prop in props:
-                    hotel_id = prop.id
-                    prop_name = prop.name
-                    price = prop.price.lead.amount
-                    distance = prop.destinationInfo.distanceFromDestination.value
-                    region_id = prop.destinationInfo.regionId
+                    hotel_id = prop['id']
+                    prop_name = prop['name']
+                    price = prop['price']['lead']['amount']
+                    distance = prop['destinationInfo']['distanceFromDestination']['value']
+                    region_id = prop['destinationInfo']['regionId']
                     link = f'{HOTELS_URL}/h{hotel_id}.Hotel-Information'
+                    neighborhood_name = ''
+                    if prop['neighborhood'] and prop['neighborhood']['name']:
+                        neighborhood_name = prop['neighborhood']['name']
+                    elif prop['destinationInfo'] and prop['destinationInfo']['distanceFromMessaging']:
+                        neighborhood_name = prop['destinationInfo']['distanceFromMessaging']
                     prop_text = f'{prop_name}\n{distance} miles\
-                        \n{prop.neighborhood.name}\n{price}\n{link}'
+                        \n{neighborhood_name}\n{price}\n{link}'
                     bot.send_message(chat_id, prop_text)
                     if time_diff > 0:
                         bot.send_message(chat_id, 'Total cost for ' + str(time_diff) +
                                          ' days: $' + str(round(price * time_diff, 2)))
                     db.add_hotel(hotel_id, prop_name, region_id, distance, price, link)
 
+                    # if user decided to watch a photo, we'll show it
                     if req[8] == 1:
-                        prop_image = prop.propertyImage
-                        if prop_image and prop_image.image and prop_image.image.url:
-                            url = prop_image.image.url
+                        prop_image = prop['propertyImage']
+                        if prop_image and prop_image['image'] and prop_image['image']['url']:
+                            url = prop_image['image']['url']
                             bot.send_photo(chat_id, url)
                             db.add_hotel_image(hotel_id, url, self.logger)
                         else:

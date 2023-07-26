@@ -185,9 +185,9 @@ class DBUtil:
         if not hotels or len(hotels) == 0:
             logger.error('Hotel not found by hotels com ID')
             return
-
+        print()
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
             cursor.execute("INSERT INTO hotel_images (hotel_id, url) VALUES (" +
-                           hotels[0][0] + ", " + url + ")")
+                           str(hotels[0][0]) + ", '" + url + "')")
             conn.commit()
