@@ -1,7 +1,6 @@
 import logging
 import telebot
 from telebot import TeleBot, types
-from telebot.handler_backends import State, StatesGroup
 from datetime import datetime
 from db import DBUtil
 from env_receiver import EnvReceiver
@@ -81,7 +80,7 @@ def main():
         chat_id = message.chat.id
         city = message.text
         message.write_access_allowed = False
-        if city:
+        if city and '/' not in city:
             with bot.retrieve_data(chat_id) as data:
                 data["city"] = city
             db.add_city_to_request(chat_id, city)
@@ -89,7 +88,8 @@ def main():
             bot.set_state(chat_id, LowpriceStates.select_city)
             bot.register_next_step_handler(message, process_select_city)
         else:
-            bot.send_message(chat_id, "Try again 1:")
+            bot.register_next_step_handler(message, process_city)
+            bot.send_message(chat_id, "Некорректное название города. Попробуйте снова:")
 
     @bot.message_handler(state=LowpriceStates.select_city)
     def process_select_city(message: types.Message, db: DBUtil = get_session()) -> None:
@@ -105,13 +105,15 @@ def main():
         db.add_region_id_to_request_by_city_name(chat_id, city_name)
 
         if markup_changed:
-            bot.send_message(chat_id, "Введите дату въезда (ДД.ММ.ГГГГ):",
+            bot.send_message(chat_id, "Ok",
                              reply_markup=types.ReplyKeyboardRemove())
         else:
-            bot.send_message(chat_id, "Введите дату въезда (ДД.ММ.ГГГГ):")
+            bot.send_message(chat_id, "Ok")
+        render_start_date(chat_id)
 
+    def render_start_date(chat_id: int):
         calendar, step = DetailedTelegramCalendar().build()
-        bot.send_message(chat_id, f"Select {LSTEP[step]}", reply_markup=calendar)
+        bot.send_message(chat_id, f"Введите дату въезда {LSTEP[step]}", reply_markup=calendar)
         bot.set_state(chat_id, LowpriceStates.start_date)
 
     @bot.message_handler(state=LowpriceStates.start_date)
@@ -120,8 +122,7 @@ def main():
         chat_id = message.chat.id
 
         calendar, step = DetailedTelegramCalendar().build()
-        bot.send_message(chat_id, "Введите дату выезда (ДД.ММ.ГГГГ):")
-        bot.send_message(chat_id, f"Select {LSTEP[step]}", reply_markup=calendar)
+        bot.send_message(chat_id, f"Введите дату выезда {LSTEP[step]}", reply_markup=calendar)
         bot.set_state(chat_id, LowpriceStates.end_date)
 
     @bot.message_handler(state=LowpriceStates.end_date)
@@ -139,8 +140,9 @@ def main():
         chat_id = message.chat.id
         try:
             count = int(message.text)
-            if count < 0 or count > MAX_HOTEL_COUNT:
-                bot.send_message(chat_id, "Try again 2:")
+            if count < 1 or count > MAX_HOTEL_COUNT:
+                bot.send_message(chat_id, f"Некорректное число отелей. Введите число от 1 до {MAX_HOTEL_COUNT}.")
+                bot.register_next_step_handler(message, process_hotel_count)
             else:
                 with bot.retrieve_data(chat_id) as data:
                     data["hotel_count"] = count
@@ -154,27 +156,19 @@ def main():
         except ValueError as ex:
             logger.error(ex)
             bot.send_message(chat_id, "Цифрами, пожалуйста")
+            bot.register_next_step_handler(message, process_hotel_count)
 
-    @bot.message_handler(state=LowpriceStates.photo_needed)
-    def process_photo_needed(message: types.Message, db: DBUtil = get_session()) -> None:
+    def process_photo_needed(message: types.Message, answer: str, db: DBUtil = get_session()) -> None:
         print('process_photo_needed func')
         chat_id = message.chat.id
-        answer = message.text.lower()
-        if answer == 'yes' or answer == 'y':
-            with bot.retrieve_data(chat_id) as data:
-                data["photo_needed"] = 1
+        if answer == 'yes':
             db.set_photo_needed_to_request(chat_id, answer)
-            bot.send_message(chat_id, "Какое количество фото?")
+            bot.send_message(chat_id, 'Какое количество фото?')
             bot.set_state(chat_id, LowpriceStates.photo_count)
             bot.register_next_step_handler(message, process_photo_count)
-        elif answer == 'no' or answer == 'n':
-            with bot.retrieve_data(chat_id) as data:
-                data["photo_needed"] = 0
-            db.set_photo_needed_to_request(chat_id, answer)
+        elif answer == 'no':
             bot.set_state(chat_id, LowpriceStates.send_request)
             make_request(bot, message)
-        else:
-            bot.send_message(chat_id, "Try again 3:")
 
     @bot.message_handler(state=LowpriceStates.photo_count)
     def process_photo_count(message: types.Message, db: DBUtil = get_session()) -> None:
@@ -182,8 +176,9 @@ def main():
         chat_id = message.chat.id
         try:
             count = int(message.text)
-            if count < 0 or count > MAX_PHOTO_COUNT:
-                bot.send_message(chat_id, "Try again 4:")
+            if count < 1 or count > MAX_PHOTO_COUNT:
+                bot.send_message(chat_id, f"Некорректное число фото. Введите число от 1 до {MAX_PHOTO_COUNT}")
+                bot.register_next_step_handler(message, process_photo_count)
             else:
                 with bot.retrieve_data(chat_id) as data:
                     data["photo_count"] = count
@@ -193,11 +188,7 @@ def main():
         except ValueError as ex:
             logger.error(ex)
             bot.send_message(chat_id, "Цифрами, пожалуйста")
-
-    @bot.message_handler(state=LowpriceStates.send_request)
-    def process_send_request(message: types.Message) -> None:
-        print('process_send_request func')
-        make_request(bot, message)
+            bot.register_next_step_handler(message, process_photo_count)
 
     @bot.message_handler(content_types=['text'])
     def message_reply(message: types.Message):
@@ -218,17 +209,23 @@ def main():
         print('calendar func')
         chat_id = c.message.chat.id
         result, key, step = DetailedTelegramCalendar().process(c.data)
+        user_step = db.get_step(chat_id)[0][0]
         if not result and key:
-            bot.edit_message_text(f"Select {LSTEP[step]}",
+            select_text = "Выберите дату "
+            if user_step == 3:
+                select_text += "въезда"
+            elif user_step == 4:
+                select_text += "выезда"
+            bot.edit_message_text(f"{select_text} {LSTEP[step]}",
                                   chat_id,
                                   c.message.message_id,
                                   reply_markup=key)
         elif result:
-            bot.edit_message_text(f"You selected {result}",
-                                  chat_id,
-                                  c.message.message_id)
-            user_step = db.get_step(chat_id)[0][0]
             if user_step == 3:
+                bot.edit_message_text(f"Вы выбрали дату въезда: {result}",
+                                      chat_id,
+                                      c.message.message_id)
+
                 start_date_str = result.strftime(DATE_FORMAT)
                 db.add_start_date_to_request(chat_id, start_date_str)
                 with bot.retrieve_data(chat_id) as data:
@@ -236,10 +233,23 @@ def main():
                 bot.set_state(chat_id, LowpriceStates.start_date)
                 process_start_date(c.message)
             elif user_step == 4:
+                bot.edit_message_text(f"Вы выбрали дату выезда: {result}",
+                                      chat_id,
+                                      c.message.message_id)
+
+                with bot.retrieve_data(chat_id) as data:
+                    start_date = datetime.strptime(data["start_date"], DATE_FORMAT).date()
+                print('Start Date =', start_date, ' - ', type(start_date))
+                if start_date and result <= start_date:
+                    bot.send_message(chat_id, 'Дата въезда не может быть позже даты выезда!')
+                    db.set_current_step(chat_id, 3)
+                    render_start_date(chat_id)
+                    return
+
                 end_date_str = result.strftime(DATE_FORMAT)
-                db.add_end_date_to_request(chat_id, end_date_str)
                 with bot.retrieve_data(chat_id) as data:
                     data["end_date"] = end_date_str
+                db.add_end_date_to_request(chat_id, end_date_str)
                 bot.set_state(chat_id, LowpriceStates.end_date)
                 process_end_date(c.message)
 
@@ -247,19 +257,11 @@ def main():
     def callback_worker(call, db: DBUtil = get_session()):
         print('callback_worker func')
         chat_id = call.message.chat.id
-        answer = call.data
         step = db.get_step(chat_id)[0][0]
         if step == 2:
             bot.register_next_step_handler(call.message, process_select_city)
         elif step == 6:
-            if answer == 'yes':
-                db.set_photo_needed_to_request(chat_id, answer)
-                bot.send_message(chat_id, 'Какое количество фото?')
-                bot.set_state(chat_id, LowpriceStates.photo_count)
-                bot.register_next_step_handler(call.message, process_photo_count)
-            elif answer == 'no':
-                bot.set_state(chat_id, LowpriceStates.send_request)
-                make_request(bot, call.message)
+            process_photo_needed(call.message, call.data)
 
     bot.polling(non_stop=True, interval=0)
 

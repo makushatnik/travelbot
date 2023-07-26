@@ -127,13 +127,24 @@ class DBUtil:
                            "WHERE id = " + str(request_id))
             conn.commit()
 
-    def set_request_inactive(self, chat_id):
+    def set_current_step(self, chat_id: int, step: int):
+        requests = self.get_current_request(chat_id)
+        if not requests or len(requests) == 0:
+            raise Exception('Current request not found!')
+        request_id = requests[0][0]
+
+        with sqlite3.connect(self._dbname) as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"UPDATE requests SET step = {step} WHERE id = {request_id}")
+            conn.commit()
+
+    def set_request_inactive(self, chat_id: int):
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
             cursor.execute("UPDATE requests SET is_current = 0, step = 0 WHERE chat_id = " + str(chat_id))
             conn.commit()
 
-    def delete_requests(self, chat_id):
+    def delete_requests(self, chat_id: int):
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
             cursor.execute('DELETE FROM requests WHERE chat_id = ' + str(chat_id))
