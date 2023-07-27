@@ -2,11 +2,6 @@ import sqlite3
 import logging
 from config_data.config import DATABASE_NAME
 
-#
-#
-# def get_session() -> DBUtil:
-#     return dbo
-
 
 class DBUtil:
 
@@ -33,7 +28,7 @@ class DBUtil:
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
             cursor.execute("INSERT INTO requests (chat_id, operation, step, is_current) VALUES(" +
-                           str(chat_id) + ", '" + operation + "', 1, 1)")
+                           str(chat_id) + ", '" + DBUtil.safe_str(operation) + "', 1, 1)")
             conn.commit()
 
     def add_city_to_request(self, chat_id: int, city: str):
@@ -43,7 +38,7 @@ class DBUtil:
         request_id = requests[0][0]
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE requests SET city = '" + city + "', step = 2 " +
+            cursor.execute("UPDATE requests SET city = '" + DBUtil.safe_str(city) + "', step = 2 " +
                            "WHERE id = " + str(request_id))
             conn.commit()
 
@@ -54,7 +49,7 @@ class DBUtil:
         request_id = requests[0][0]
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE requests SET start_date = '" + start_date +
+            cursor.execute("UPDATE requests SET start_date = '" + DBUtil.safe_str(start_date) +
                            "', step = 4 WHERE id = " + str(request_id))
             conn.commit()
 
@@ -65,7 +60,7 @@ class DBUtil:
         request_id = requests[0][0]
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE requests SET end_date = '" + end_date +
+            cursor.execute("UPDATE requests SET end_date = '" + DBUtil.safe_str(end_date) +
                            "', step = 5 WHERE id = " + str(request_id))
             conn.commit()
 
@@ -110,8 +105,8 @@ class DBUtil:
         request_id = requests[0][0]
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE requests SET region_id = " + region_id + ", step = 3 " +
-                           "WHERE id = " + str(request_id))
+            cursor.execute("UPDATE requests SET region_id = " + DBUtil.safe_str(region_id) +
+                           ", step = 3 WHERE id = " + str(request_id))
             conn.commit()
 
     def add_region_id_to_request_by_city_name(self, chat_id: int, name: str):
@@ -174,7 +169,7 @@ class DBUtil:
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
             cursor.execute("INSERT INTO cities (name, query_name, region_id) VALUES ('" +
-                           name + "', '" + query_name + "'," + region_id + ")")
+                           DBUtil.safe_str(name) + "', '" + query_name + "'," + region_id + ")")
             conn.commit()
 
     def get_hotel_by_id(self, hotel_id: int):
@@ -191,8 +186,8 @@ class DBUtil:
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
             cursor.execute("INSERT INTO hotels (hotels_com_id, name, region_id, distance, price, link) VALUES(" +
-                           str(hotel_id) + ", '" + name + "', " + str(region_id) + ", " + str(distance) + ", " +
-                           str(price) + ", '" + link + "')")
+                           str(hotel_id) + ", '" + DBUtil.safe_str(name) + "', " + str(region_id) + ", " +
+                           str(distance) + ", " + str(price) + ", '" + link + "')")
             conn.commit()
 
     def add_hotel_image(self, hotel_id: int, url: str, logger: logging.Logger):
@@ -206,6 +201,12 @@ class DBUtil:
             cursor.execute("INSERT INTO hotel_images (hotel_id, url) VALUES (" +
                            str(hotels[0][0]) + ", '" + url + "')")
             conn.commit()
+
+    @staticmethod
+    def safe_str(string: str) -> str:
+        res = string.replace("'", "")
+        res = res.replace("\"", "")
+        return res
 
 
 db = DBUtil()

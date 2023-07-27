@@ -2,7 +2,6 @@ from telebot.handler_backends import State, StatesGroup
 
 
 class LowpriceStates(StatesGroup):
-    start = State()
     get_city = State()
     select_city = State()
     start_date = State()
