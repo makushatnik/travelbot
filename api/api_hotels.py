@@ -108,7 +108,7 @@ class ApiRequests:
                 for prop in props:
                     hotel_id = prop['id']
                     prop_name = prop['name']
-                    price = prop['price']['lead']['amount']
+                    price = round(prop['price']['lead']['amount'], 2)
                     distance = prop['destinationInfo']['distanceFromDestination']['value']
                     region_id = prop['destinationInfo']['regionId']
                     link = f'{HOTELS_URL}/h{hotel_id}.Hotel-Information'
@@ -134,8 +134,8 @@ class ApiRequests:
                             db.add_hotel_image(hotel_id, url, self.logger)
                         else:
                             self.logger.error('Cant get Property Image!')
-                else:
-                    self.logger.error('No Properties at all!')
+                # else:
+                #     self.logger.error('No Properties at all!')
             else:
                 self.logger.error('Cant get Properties!')
         else:
