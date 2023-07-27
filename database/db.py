@@ -1,13 +1,17 @@
 import sqlite3
 import logging
-from env_receiver import EnvReceiver
+from config_data.config import DATABASE_NAME
+
+#
+#
+# def get_session() -> DBUtil:
+#     return dbo
 
 
 class DBUtil:
 
-    def __init__(self, env_receiver: EnvReceiver):
-        self._env_receiver = env_receiver
-        self._dbname = env_receiver.database_name
+    def __init__(self):
+        self._dbname = DATABASE_NAME
         self._conn = sqlite3.connect(self._dbname)
 
     def get_hotels(self):
@@ -16,13 +20,13 @@ class DBUtil:
     def get_step(self, chat_id: int):
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT step FROM requests WHERE chat_id = ' + str(chat_id) + ' AND is_current = 1')
+            cursor.execute(f'SELECT step FROM requests WHERE chat_id = {chat_id} AND is_current = 1')
             return cursor.fetchall()
 
     def get_current_request(self, chat_id: int):
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM requests WHERE chat_id = ' + str(chat_id) + ' AND is_current = 1')
+            cursor.execute(f'SELECT * FROM requests WHERE chat_id = {chat_id} AND is_current = 1')
             return cursor.fetchall()
 
     def add_request(self, chat_id: int, operation: str):
@@ -141,25 +145,25 @@ class DBUtil:
     def set_request_inactive(self, chat_id: int):
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE requests SET is_current = 0, step = 0 WHERE chat_id = " + str(chat_id))
+            cursor.execute(f"UPDATE requests SET is_current = 0, step = 0 WHERE chat_id = {chat_id}")
             conn.commit()
 
     def delete_requests(self, chat_id: int):
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM requests WHERE chat_id = ' + str(chat_id))
+            cursor.execute(f'DELETE FROM requests WHERE chat_id = {chat_id}')
             conn.commit()
 
     def get_city_by_region_id(self, region_id: str):
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM cities WHERE region_id = ' + region_id)
+            cursor.execute(f'SELECT * FROM cities WHERE region_id = {region_id}')
             return cursor.fetchall()
 
     def get_city_by_name(self, name: str):
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM cities WHERE name = '" + name + "'")
+            cursor.execute(f"SELECT * FROM cities WHERE name = '{name}'")
             return cursor.fetchall()
 
     def add_city(self, name: str, query_name: str, region_id: str):
@@ -176,7 +180,7 @@ class DBUtil:
     def get_hotel_by_id(self, hotel_id: int):
         with sqlite3.connect(self._dbname) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM hotels WHERE hotels_com_id = ' + str(hotel_id))
+            cursor.execute(f'SELECT * FROM hotels WHERE hotels_com_id = {hotel_id}')
             return cursor.fetchall()
 
     def add_hotel(self, hotel_id: int, name: str, region_id: int, distance: float, price: float, link: str):
@@ -202,3 +206,6 @@ class DBUtil:
             cursor.execute("INSERT INTO hotel_images (hotel_id, url) VALUES (" +
                            str(hotels[0][0]) + ", '" + url + "')")
             conn.commit()
+
+
+db = DBUtil()

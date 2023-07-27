@@ -4,14 +4,14 @@ import logging
 import requests
 from datetime import datetime
 from telebot import TeleBot, types
-from env_receiver import EnvReceiver
-from constants import *
-from db import DBUtil
+from config_data.config import *
+from utils.constants import *
+from database.db import DBUtil
+from keyboards.reply.reply import get_keyboard_for_cities
 
 
 class ApiRequests:
-    def __init__(self, env_receiver: EnvReceiver, logger: logging.Logger):
-        self._env_receiver = env_receiver
+    def __init__(self, logger: logging.Logger):
         self.logger = logger
 
     def get_cities(self, bot: TeleBot, chat_id: int, db: DBUtil, query: str):
@@ -21,8 +21,8 @@ class ApiRequests:
 
         headers = {
             "Content-Type": "application/json",
-            "X-RapidAPI-Key": self._env_receiver.rapid_api_key,
-            "X-RapidAPI-Host": self._env_receiver.rapid_api_host
+            "X-RapidAPI-Key": RAPID_API_KEY,
+            "X-RapidAPI-Host": RAPID_API_HOST
         }
         params = {
             "q": query,
@@ -36,7 +36,7 @@ class ApiRequests:
         json_data = json.loads(response.text)
         if json_data['sr'] and len(json_data['sr']) > 0:
             found = False
-            markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            markup = get_keyboard_for_cities()
             for region in json_data['sr']:
                 display_name = 'None'
                 if region['regionNames'] and region['regionNames']['secondaryDisplayName']:
@@ -68,8 +68,8 @@ class ApiRequests:
 
         headers = {
             "Content-Type": "application/json",
-            "X-RapidAPI-Key": self._env_receiver.rapid_api_key,
-            "X-RapidAPI-Host": self._env_receiver.rapid_api_host
+            "X-RapidAPI-Key": RAPID_API_KEY,
+            "X-RapidAPI-Host": RAPID_API_HOST
         }
         params = {
             "currency": "USD",
