@@ -1,6 +1,6 @@
 import sqlite3
 import logging
-from config_data.config import DATABASE_NAME
+from utils.constants import DATABASE_NAME
 
 
 class DBUtil:
@@ -8,9 +8,6 @@ class DBUtil:
     def __init__(self):
         self._dbname = DATABASE_NAME
         self._conn = sqlite3.connect(self._dbname)
-
-    def get_hotels(self):
-        pass
 
     def get_step(self, chat_id: int):
         with sqlite3.connect(self._dbname) as conn:

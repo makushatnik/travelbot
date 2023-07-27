@@ -14,13 +14,10 @@ When all preparations are done, you should do this steps:
 2. Activate Virtual Environment in the project,
 3. Create file .env with following variables:
    * BOT_TOKEN
-   * RAPID_API_HOST
    * RAPID_API_KEY
-   * DATABASE_NAME
-4. Create SQLite database:
+4. Run database/create_tables.py:
     ```
-    sqlite3
-    .open hotels.db
+    python create_tables.py
     ```
 5. Type the commands:
     ```

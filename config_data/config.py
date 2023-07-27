@@ -8,8 +8,6 @@ else:
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 RAPID_API_KEY = os.getenv("RAPID_API_KEY")
-RAPID_API_HOST = os.getenv('RAPID_API_HOST')
-DATABASE_NAME = os.getenv('DATABASE_NAME')
 
 DEFAULT_COMMANDS = (
     ("start", "Запустить бота"),
