@@ -29,7 +29,7 @@ class ApiRequests:
         }
         params = {
             "q": query,
-            "locale": "en_US"
+            "locale": "ru_RU"
         }
 
         try:
@@ -68,7 +68,8 @@ class ApiRequests:
         req = db.get_current_request(chat_id)[0]
         start_date = datetime.strptime(req[5], DATE_FORMAT)
         end_date = datetime.strptime(req[6], DATE_FORMAT)
-        time_diff = (end_date - start_date).days
+        days_diff = (end_date - start_date).days
+        days_diff = 1 if days_diff <= 1 else days_diff
 
         headers = {
             "Content-Type": "application/json",
@@ -78,7 +79,7 @@ class ApiRequests:
         params = {
             "currency": "USD",
             "eapid": "1",
-            "locale": "en_US",
+            "locale": "ru_RU",
             "siteId": 300000001,
             "destination": {
                 "regionId": str(req[4])
@@ -104,6 +105,7 @@ class ApiRequests:
                 self.logger.error('No Properties at all!')
                 return
 
+            i = 1
             for prop in props:
                 hotel_id = prop['id']
                 prop_name = prop['name']
@@ -116,13 +118,17 @@ class ApiRequests:
                     neighborhood_name = prop['neighborhood']['name']
                 elif prop['destinationInfo'] and prop['destinationInfo']['distanceFromMessaging']:
                     neighborhood_name = prop['destinationInfo']['distanceFromMessaging']
-                prop_text = f'{prop_name}\n{distance} miles\
-                    \n{neighborhood_name}\n${price}\n{link}'
-                bot.send_message(chat_id, prop_text)
-                if time_diff > 0:
-                    bot.send_message(chat_id, 'Total cost for ' + str(time_diff) +
-                                     ' days: $' + str(round(price * time_diff, 2)))
+                price_diff = round(days_diff * price, 2)
+
+                text = f'{i}) Название отеля: {prop_name}\n' \
+                       f'От центра: {distance} км\n' \
+                       f'Название района: {neighborhood_name}\n' \
+                       f'Цена за сутки: ${price}\n' \
+                       f'Всего за {days_diff} дней: ${price_diff}\n' \
+                       f'{link}'
+                bot.send_message(chat_id, text, disable_web_page_preview=True)
                 db.add_hotel(hotel_id, prop_name, region_id, distance, price, link)
+                i += 1
 
                 # if user decided to watch a photo, we'll show it
                 if req[8] == 1:

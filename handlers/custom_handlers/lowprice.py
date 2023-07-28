@@ -1,8 +1,8 @@
-from telebot.types import Message
+from telebot.types import Message, CallbackQuery
 from loader import bot, log
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from telegram_bot_calendar import DetailedTelegramCalendar, LSTEP
-from states.states import LowpriceStates
+from states.states import UserStates
 from keyboards.inline.inline import get_show_photo_keyboard
 from keyboards.reply.reply import get_calendar, get_changed_calendar, remove_keyboard
 from utils.constants import *
@@ -29,11 +29,11 @@ def lowprice_handler(message: Message):
     chat_id = message.chat.id
     db.add_request(chat_id, 'lowprice')
     bot.send_message(chat_id, "Название города?")
-    bot.set_state(message.from_user.id, LowpriceStates.get_city, chat_id)
+    bot.set_state(message.from_user.id, UserStates.get_city, chat_id)
     bot.register_next_step_handler(message, process_city)
 
 
-@bot.message_handler(state=LowpriceStates.get_city)
+@bot.message_handler(state=UserStates.get_city)
 def process_city(message: Message) -> None:
     # print('process_city func')
     chat_id = message.chat.id
@@ -44,16 +44,16 @@ def process_city(message: Message) -> None:
             data["city"] = city
         db.add_city_to_request(chat_id, city)
         api_requests.get_cities(bot, chat_id, db, city)
-        bot.set_state(chat_id, LowpriceStates.select_city)
+        bot.set_state(chat_id, UserStates.select_city)
         bot.register_next_step_handler(message, process_select_city)
     else:
         bot.register_next_step_handler(message, process_city)
         bot.send_message(chat_id, "Некорректное название города. Попробуйте снова:")
 
 
-@bot.message_handler(state=LowpriceStates.select_city)
+@bot.message_handler(state=UserStates.select_city)
 def process_select_city(message: Message) -> None:
-    # print('process_city func')
+    # print('process_select_city func')
     chat_id = message.chat.id
     city_name = message.text
     message.write_access_allowed = False
@@ -70,31 +70,34 @@ def render_start_date(chat_id: int):
     """
     Intermediate function before process_select_city and process_start_date
     """
-    calendar, step = get_calendar()
+    # print('render_start_date func')
+    calendar, step = get_calendar(date.today())
     bot.send_message(chat_id, f"Введите дату въезда {LSTEP[step]}", reply_markup=calendar)
-    bot.set_state(chat_id, LowpriceStates.start_date)
+    bot.set_state(chat_id, UserStates.start_date)
 
 
-@bot.message_handler(state=LowpriceStates.start_date)
+@bot.message_handler(state=UserStates.start_date)
 def process_start_date(message: Message) -> None:
     # print('process_start_date func')
     chat_id = message.chat.id
 
-    calendar, step = get_calendar()
+    min_date = date.today()
+    min_date += timedelta(days=1)
+    calendar, step = get_calendar(min_date)
     bot.send_message(chat_id, f"Введите дату выезда {LSTEP[step]}", reply_markup=calendar)
-    bot.set_state(chat_id, LowpriceStates.end_date)
+    bot.set_state(chat_id, UserStates.end_date)
 
 
-@bot.message_handler(state=LowpriceStates.end_date)
+@bot.message_handler(state=UserStates.end_date)
 def process_end_date(message: Message) -> None:
     # print('process_end_date func')
     chat_id = message.chat.id
     bot.send_message(chat_id, "Количество отелей?", reply_markup=remove_keyboard())
-    bot.set_state(chat_id, LowpriceStates.hotel_count)
+    bot.set_state(chat_id, UserStates.hotel_count)
     bot.register_next_step_handler(message, process_hotel_count)
 
 
-@bot.message_handler(state=LowpriceStates.hotel_count)
+@bot.message_handler(state=UserStates.hotel_count)
 def process_hotel_count(message: Message) -> None:
     # print('process_hotel_count func')
     chat_id = message.chat.id
@@ -120,14 +123,14 @@ def process_photo_needed(message: Message, answer: str) -> None:
     if answer == 'yes':
         db.set_photo_needed_to_request(chat_id, answer)
         bot.send_message(chat_id, 'Какое количество фото?')
-        bot.set_state(chat_id, LowpriceStates.photo_count)
+        bot.set_state(chat_id, UserStates.photo_count)
         bot.register_next_step_handler(message, process_photo_count)
     elif answer == 'no':
-        bot.set_state(chat_id, LowpriceStates.send_request)
+        bot.set_state(chat_id, UserStates.send_request)
         make_request(message)
 
 
-@bot.message_handler(state=LowpriceStates.photo_count)
+@bot.message_handler(state=UserStates.photo_count)
 def process_photo_count(message: Message) -> None:
     # print('process_photo_count func')
     chat_id = message.chat.id
@@ -140,7 +143,7 @@ def process_photo_count(message: Message) -> None:
             with bot.retrieve_data(chat_id) as data:
                 data["photo_count"] = count
             db.add_photo_count_to_request(chat_id, count)
-            bot.set_state(chat_id, LowpriceStates.send_request)
+            bot.set_state(chat_id, UserStates.send_request)
             make_request(message)
     except ValueError as ex:
         log.error(ex)
@@ -150,17 +153,17 @@ def process_photo_count(message: Message) -> None:
 
 @bot.message_handler(state="*", content_types=['text'])
 def message_reply(message: Message):
-    # print('message_reply func')
+    print('message_reply func')
     user_id = message.from_user.id
     cur_state = bot.get_state(user_id)
     if message.text[0] == '/':
         bot.delete_state(message.chat.id)
         lowprice_handler(message)
-    if cur_state == LowpriceStates.get_city.name:
+    if cur_state == UserStates.get_city.name:
         bot.register_next_step_handler(message, process_city)
-    elif cur_state == LowpriceStates.hotel_count.name:
+    elif cur_state == UserStates.hotel_count.name:
         bot.register_next_step_handler(message, process_hotel_count)
-    elif cur_state == LowpriceStates.photo_count.name:
+    elif cur_state == UserStates.photo_count.name:
         bot.register_next_step_handler(message, process_photo_count)
 
 
@@ -168,8 +171,11 @@ def message_reply(message: Message):
 def callback_calendar(c):
     # print('calendar func')
     chat_id = c.message.chat.id
-    result, key, step = get_changed_calendar(c.data)
     user_step = db.get_step(chat_id)[0][0]
+    min_date = date.today()
+    if user_step == 4:
+        min_date += timedelta(days=1)
+    result, key, step = get_changed_calendar(min_date, c.data)
     if not result and key:
         select_text = "Выберите дату " + "въезда" if user_step == 3 else "выезда"
         bot.edit_message_text(f"{select_text} {LSTEP[step]}",
@@ -204,7 +210,7 @@ def save_start_date(message: Message, result: date):
     db.add_start_date_to_request(chat_id, start_date_str)
     with bot.retrieve_data(chat_id) as data:
         data["start_date"] = start_date_str
-    bot.set_state(chat_id, LowpriceStates.start_date)
+    bot.set_state(chat_id, UserStates.start_date)
     process_start_date(message)
 
 
@@ -226,5 +232,4 @@ def save_end_date(message: Message, result: date):
     with bot.retrieve_data(chat_id) as data:
         data["end_date"] = end_date_str
     db.add_end_date_to_request(chat_id, end_date_str)
-    bot.set_state(chat_id, LowpriceStates.end_date)
     process_end_date(message)

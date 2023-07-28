@@ -1,6 +1,7 @@
 ## Travel Bot
 ### Commands
-- hello-world - Pings Telegram Bot. Used to check if its available.
+- start - Запуск бота. Показать кнопку "help"
+- help - Показать список доступных команд
 - lowprice - Узнать топ самых дешевых отелей в городе
 - highprice - Узнать топ самых дорогих отелей в городе
 - bestdeal - Узнать топ отелей, наиболее подходящих по цене и расположению от центра
@@ -15,11 +16,7 @@ When all preparations are done, you should do this steps:
 3. Create file .env with following variables:
    * BOT_TOKEN
    * RAPID_API_KEY
-4. Run database/create_tables.py:
-    ```
-    python create_tables.py
-    ```
-5. Type the commands:
+4. Type the commands:
     ```
     pip install -r requirements.txt
     python main.py

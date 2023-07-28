@@ -3,10 +3,14 @@ from utils.constants import DATETIME_FORMAT
 from loader import bot, log
 import handlers
 from utils.set_bot_commands import set_default_commands
+from database.create_tables import create
 
 
 def main():
     """ Main function """
+    # Let's create DB & all tables first
+    create()
+    print("Database Created!")
     set_default_commands(bot)
     log.info('Bot started at: %s' % datetime.now().strftime(DATETIME_FORMAT))
     bot.infinity_polling()

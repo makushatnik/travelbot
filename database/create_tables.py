@@ -30,7 +30,7 @@ def create_table(conn, create_table_sql):
         print(e)
 
 
-def main():
+def create():
     database = r"../hotels.db"
 
     sql_create_requests = """CREATE TABLE requests (
@@ -83,4 +83,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    create()
