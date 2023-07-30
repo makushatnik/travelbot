@@ -33,21 +33,6 @@ def create_table(conn, create_table_sql):
 def create():
     database = r"../hotels.db"
 
-    sql_create_requests = """CREATE TABLE requests (
-                          id INTEGER PRIMARY KEY AUTOINCREMENT,
-                          chat_id INTEGER NOT NULL,
-                          operation TEXT NOT NULL,
-                          city TEXT,
-                          region_id INTEGER,
-                          start_date TEXT,
-                          end_date TEXT,
-                          hotel_count INTEGER DEFAULT 0,
-                          photo_needed INTEGER NOT NULL DEFAULT 0,
-                          photo_count INTEGER DEFAULT 0,
-                          step INTEGER NOT NULL DEFAULT 0,
-                          is_current INTEGER NOT NULL
-                        );"""
-
     sql_create_cities = """CREATE TABLE cities (
                           id INTEGER PRIMARY KEY AUTOINCREMENT,
                           name TEXT NOT NULL,
@@ -61,8 +46,7 @@ def create():
                           name TEXT NOT NULL,
                           region_id INTEGER NOT NULL,
                           distance REAL,
-                          price REAL,
-                          link TEXT NOT NULL
+                          price REAL
                         );"""
 
     sql_create_hotel_images = """CREATE TABLE hotel_images (
@@ -74,7 +58,6 @@ def create():
 
     conn = create_connection(database)
     if conn is not None:
-        create_table(conn, sql_create_requests)
         create_table(conn, sql_create_cities)
         create_table(conn, sql_create_hotels)
         create_table(conn, sql_create_hotel_images)
