@@ -3,6 +3,7 @@ CREATE TABLE users (
   first_name TEXT,
   last_name TEXT,
   username TEXT,
+  language TEXT NOT NULL DEFAULT 'ru_RU',
   banned INTEGER NOT NULL DEFAULT 0
 );
 

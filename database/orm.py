@@ -25,6 +25,7 @@ class User(BaseModel):
     first_name = CharField()
     last_name = CharField()
     username = CharField()
+    language = CharField(null=False, default='ru_RU', max_length=5)
     banned = BooleanField(default=False)
 
 
