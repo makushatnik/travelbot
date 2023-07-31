@@ -7,15 +7,15 @@ from telebot import TeleBot, types
 from telebot.types import InputMediaPhoto
 from config_data.config import *
 from utils.constants import *
-from database.db import DBUtil
 from keyboards.reply.reply import get_keyboard_for_cities
+from database.orm import Hotel, HotelImage, City
 
 
 class ApiRequests:
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    def get_cities(self, bot: TeleBot, chat_id: int, db: DBUtil, query: str):
+    def get_cities(self, bot: TeleBot, chat_id: int, query: str):
         """
         Function for sending query for getting list of cities
         """
@@ -48,7 +48,7 @@ class ApiRequests:
 
                 if region_id != 0:
                     found = True
-                    db.add_city(display_name, query, region_id)
+                    City.create(name=display_name, query_name=query, region_id=region_id)
                     region_key = types.InlineKeyboardButton(text=display_name,
                                                             callback_data=f'region:{region_id}')
                     markup.add(region_key)
@@ -59,15 +59,20 @@ class ApiRequests:
         except Exception as ex:
             self.logger.error(ex)
 
-    def get_hotels(self, bot: TeleBot, chat_id: int, db: DBUtil):
+    def get_hotels(self, bot: TeleBot, chat_id: int):
         """
         Function for sending query for getting list of hotels
         """
         # print('get_hotels func')
         bot.send_chat_action(chat_id=chat_id, action='typing')
-        req = db.get_current_request(chat_id)[0]
-        start_date = datetime.strptime(req[5], DATE_FORMAT)
-        end_date = datetime.strptime(req[6], DATE_FORMAT)
+        with bot.retrieve_data(chat_id) as data:
+            req_data = data
+        if not req_data:
+            self.logger.error("Error gathering request data")
+            bot.send_message(chat_id, 'Error!')
+
+        start_date = datetime.strptime(req_data['start_date'], DATE_FORMAT)
+        end_date = datetime.strptime(req_data['end_date'], DATE_FORMAT)
         days_diff = (end_date - start_date).days
         days_diff = 1 if days_diff <= 1 else days_diff
 
@@ -82,17 +87,17 @@ class ApiRequests:
             "locale": "ru_RU",
             "siteId": 300000001,
             "destination": {
-                "regionId": str(req[4])
+                "regionId": str(req_data['region_id'])
             },
             "checkInDate": {"day": start_date.day, "month": start_date.month, "year": start_date.year},
             "checkOutDate": {"day": end_date.day, "month": end_date.month, "year": end_date.year},
             "rooms": [{"adults": 1}],
             "resultsStartingIndex": 0,
-            "resultsSize": req[7],
-            "sort": "PRICE_LOW_TO_HIGH",
+            "resultsSize": req_data['hotel_count'],
+            "sort": req_data["sort"],
             "filters": {"availableFilter": "SHOW_AVAILABLE_ONLY"}
         }
-        # print('PARAMS =', params)
+
         result = []
         try:
             response = requests.post(PROPERTIES_LIST_URL, headers=headers, json=params)
@@ -124,24 +129,30 @@ class ApiRequests:
                 price_diff = round(days_diff * price, 2)
 
                 prop_elem['text'] = f'{i}) Название отеля: {prop_name}\n' \
-                       f'От центра: {distance} км\n' \
-                       f'Название района: {neighborhood_name}\n' \
-                       f'Цена за сутки: ${price}\n' \
-                       f'Всего за {days_diff} дней: ${price_diff}\n' \
-                       f'{link}'
+                                    f'От центра: {distance} км\n' \
+                                    f'Название района: {neighborhood_name}\n' \
+                                    f'Цена за сутки: ${price}\n' \
+                                    f'Всего за {days_diff} дней: ${price_diff}\n' \
+                                    f'{link}'
 
-                db.add_hotel(hotel_id, prop_name, region_id, distance, price, link)
+                Hotel.create(
+                    hotels_com_id=hotel_id,
+                    name=prop_name,
+                    region_id=region_id,
+                    distance=distance,
+                    price=price
+                )
                 i += 1
 
                 # if user decided to watch a photo, we'll show it
-                if req[8] == 1:
+                if req_data['photo_needed'] == 1:
                     prop_image = prop['propertyImage']
                     # some properties have no image, so we need to check it
                     if prop_image and prop_image['image'] and prop_image['image']['url']:
                         url = prop_image['image']['url']
                         prop_elem['images'] = []
                         prop_elem['images'].append(url)
-                        db.add_hotel_image(hotel_id, url, self.logger)
+                        HotelImage.create(hotel_id=hotel_id, url=url)
                     else:
                         self.logger.error('Cant get Property Image!')
 
@@ -149,16 +160,22 @@ class ApiRequests:
         except Exception as ex:
             self.logger.error(ex)
 
-        detail_request_needed = req[9] > 1
+        detail_request_needed = req_data['photo_count'] > 1
         try:
+            i = 1
+            cnt = len(result)
             for prop_elem in result:
                 bot.send_message(chat_id, prop_elem['text'], disable_web_page_preview=True)
+                bot.send_chat_action(chat_id=chat_id, action='upload_photo')
                 # if we need just 1 photo, we'll send it right away
                 if not detail_request_needed:
                     bot.send_photo(chat_id, prop_elem['images'][0])
                 else:
-                    photos = self.get_prop_photos(prop_elem['id'], req[9])
+                    photos = self.get_prop_photos(prop_elem['id'], req_data['photo_count'])
                     bot.send_media_group(chat_id, photos)
+                if i < cnt:
+                    bot.send_chat_action(chat_id=chat_id, action='typing')
+                i += 1
         except Exception as ex:
             self.logger.error(ex)
 

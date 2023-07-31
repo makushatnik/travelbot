@@ -1,16 +1,9 @@
-CREATE TABLE requests (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  chat_id INTEGER NOT NULL,
-  operation TEXT NOT NULL,
-  city TEXT,
-  region_id INTEGER,
-  start_date TEXT,
-  end_date TEXT,
-  hotel_count INTEGER DEFAULT 0,
-  photo_needed INTEGER NOT NULL DEFAULT 0,
-  photo_count INTEGER DEFAULT 0,
-  step INTEGER NOT NULL DEFAULT 0,
-  is_current INTEGER NOT NULL
+CREATE TABLE users (
+  user_id INTEGER PRIMARY KEY,
+  first_name TEXT,
+  last_name TEXT,
+  username TEXT,
+  banned INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE hotels (
@@ -19,14 +12,13 @@ CREATE TABLE hotels (
   name TEXT NOT NULL,
   region_id INTEGER NOT NULL,
   distance REAL,
-  price REAL,
-  link TEXT NOT NULL
+  price REAL
 );
 
 CREATE TABLE history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  chat_id INTEGER NOT NULL,
-  operation TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
+  command TEXT NOT NULL,
   made_at TEXT NOT NULL
 );
 
