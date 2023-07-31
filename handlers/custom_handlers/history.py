@@ -1,6 +1,5 @@
 from telebot.types import Message
 from loader import bot
-from database.db import db
 from database.orm import User
 
 

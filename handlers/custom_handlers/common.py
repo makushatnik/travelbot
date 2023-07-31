@@ -28,20 +28,25 @@ def make_request(message: Message):
     bot.delete_state(chat_id)
 
 
-@bot.message_handler(commands=['highprice'])
-def highprice_handler(message: Message):
-    # print('highprice_handler func')
+@bot.message_handler(commands=['lowprice', 'highprice', 'bestdeal'])
+def common_handler(message: Message):
+    print('common_handler func')
     user_id = message.from_user.id
     if User.get_or_none(User.user_id == user_id) is None:
         bot.send_message(user_id, "Вы не зарегистрированы. Напишите /start")
         return
 
     chat_id = message.chat.id
+    command = message.text[1:]
+    if command == 'bestdeal':
+        bot.send_message(chat_id, "Not implemented yet.")
+        return
+
     bot.send_message(chat_id, "Название города?")
     bot.set_state(message.from_user.id, UserStates.get_city, chat_id)
     with bot.retrieve_data(chat_id) as data:
-        data['command'] = 'highprice'
-        data['sort'] = "PRICE_HIGH_TO_LOW"
+        data['command'] = command
+        data['sort'] = get_sort(command)
         data['state'] = UserStates.get_city
     bot.register_next_step_handler(message, process_city)
 
@@ -175,12 +180,17 @@ def process_photo_count(message: Message) -> None:
 
 @bot.message_handler(state="*", content_types=['text'])
 def message_reply(message: Message):
-    print('message_reply func')
+    # print('message_reply func')
     user_id = message.from_user.id
     cur_state = bot.get_state(user_id)
     if message.text[0] == '/':
         bot.delete_state(message.chat.id)
-        highprice_handler(message)
+        command = message.text[1:]
+        if command in ['lowprice', 'highprice', 'bestdeal']:
+            common_handler(message)
+        else:
+            bot.send_message(user_id, 'Incorrect command')
+            log.error('Incorrect command')
     if cur_state == UserStates.get_city.name:
         bot.register_next_step_handler(message, process_city)
     elif cur_state == UserStates.hotel_count.name:
@@ -254,3 +264,11 @@ def save_end_date(message: Message, result: date):
     with bot.retrieve_data(chat_id) as data:
         data["end_date"] = end_date_str
     process_end_date(message)
+
+
+def get_sort(command: str) -> str:
+    if command == 'lowprice':
+        return "PRICE_LOW_TO_HIGH"
+    elif command == "highprice":
+        return "PRICE_HIGH_TO_LOW"
+    return ""
