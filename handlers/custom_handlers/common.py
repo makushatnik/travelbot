@@ -8,46 +8,41 @@ from keyboards.reply.reply import get_calendar, get_changed_calendar, remove_key
 from utils.constants import *
 from api.api_hotels import ApiRequests
 from database.orm import User, get_region_id_by_city_name
+from utils.utils import get_sort, get_user_state
 
 api_requests = ApiRequests(log)
-
-
-def get_user_state(chat_id: int) -> str:
-    with bot.retrieve_data(chat_id) as data:
-        state = data["state"]
-    return state.name
 
 
 def make_request(message: Message):
     # print('Sending the Request!')
     chat_id = message.chat.id
-    # with bot.retrieve_data(chat_id) as data:
-    #     print('DATA =', data)
-    api_requests.get_hotels(bot, chat_id)
+    with bot.retrieve_data(chat_id) as data:
+        req_data = data
+        # print('DATA =', data)
+    api_requests.get_hotels(bot, chat_id, req_data)
 
     bot.delete_state(chat_id)
 
 
 @bot.message_handler(commands=['lowprice', 'highprice', 'bestdeal'])
 def common_handler(message: Message):
-    print('common_handler func')
+    # print('common_handler func')
     user_id = message.from_user.id
-    if User.get_or_none(User.user_id == user_id) is None:
+    user = User.get_or_none(User.user_id == user_id)
+    if not user:
         bot.send_message(user_id, "Вы не зарегистрированы. Напишите /start")
         return
 
     chat_id = message.chat.id
     command = message.text[1:]
-    if command == 'bestdeal':
-        bot.send_message(chat_id, "Not implemented yet.")
-        return
-
     bot.send_message(chat_id, "Название города?")
     bot.set_state(message.from_user.id, UserStates.get_city, chat_id)
     with bot.retrieve_data(chat_id) as data:
         data['command'] = command
         data['sort'] = get_sort(command)
         data['state'] = UserStates.get_city
+        data['language'] = user.language
+    user = None
     bot.register_next_step_handler(message, process_city)
 
 
@@ -57,7 +52,9 @@ def process_city(message: Message) -> None:
     chat_id = message.chat.id
     city = message.text
     if city and '/' not in city:
-        api_requests.get_cities(bot, chat_id, city)
+        with bot.retrieve_data(chat_id) as data:
+            language = data['language']
+        api_requests.get_cities(bot, chat_id, city, language)
         bot.set_state(chat_id, UserStates.select_city)
         with bot.retrieve_data(chat_id) as data:
             data["city"] = city
@@ -74,12 +71,79 @@ def process_select_city(message: Message) -> None:
     chat_id = message.chat.id
     city_name = message.text
     region_id = get_region_id_by_city_name(city_name)
-    if region_id:
-        with bot.retrieve_data(chat_id) as data:
+    with bot.retrieve_data(chat_id) as data:
+        command = data["command"]
+        if region_id:
             data["region_id"] = region_id
 
-    # We send it just to delete latter keyboard
-    bot.send_message(chat_id, "Ok", reply_markup=remove_keyboard())
+    if command == 'bestdeal':
+        render_min_price(message)
+    else:
+        # We send it just to delete latter keyboard
+        bot.send_message(chat_id, "Ok", reply_markup=remove_keyboard())
+        render_start_date(chat_id)
+
+
+def render_min_price(message: Message):
+    chat_id = message.chat.id
+    bot.send_message(chat_id, "Введите минимальную цену", reply_markup=remove_keyboard())
+    bot.set_state(chat_id, UserStates.min_price)
+    with bot.retrieve_data(chat_id) as data:
+        data["state"] = UserStates.min_price
+    bot.register_next_step_handler(message, process_min_price)
+
+
+@bot.message_handler(state=UserStates.min_price, is_digit=True)
+def process_min_price(message: Message) -> None:
+    chat_id = message.chat.id
+    min_price = round(float(message.text), 2)
+    if min_price <= 0 or min_price > MAX_PRICE:
+        bot.send_message(chat_id, "Incorrect min price!")
+        return
+
+    bot.send_message(chat_id, "Введите максимальную цену")
+    bot.set_state(chat_id, UserStates.max_price)
+    with bot.retrieve_data(chat_id) as data:
+        data['min_price'] = min_price
+        data['state'] = UserStates.max_price
+    bot.register_next_step_handler(message, process_max_price)
+
+
+@bot.message_handler(state=UserStates.max_price, is_digit=True)
+def process_max_price(message: Message) -> None:
+    chat_id = message.chat.id
+    max_price = round(float(message.text), 2)
+    if max_price <= 0 or max_price > MAX_PRICE:
+        bot.send_message(chat_id, "Incorrect max price!")
+        return
+
+    with bot.retrieve_data(chat_id) as data:
+        min_price = data['min_price']
+    if max_price < min_price:
+        bot.send_message(chat_id, "Максимальная цена не может быть меньше минимальной.")
+        bot.set_state(chat_id, UserStates.select_city)
+        render_min_price(message)
+        return
+
+    bot.send_message(chat_id, "Введите максимальное расстояние от центра")
+    bot.set_state(chat_id, UserStates.max_distance)
+    with bot.retrieve_data(chat_id) as data:
+        data['max_price'] = max_price
+        data['state'] = UserStates.max_distance
+    bot.register_next_step_handler(message, process_max_distance)
+
+
+@bot.message_handler(state=UserStates.max_distance, is_digit=True)
+def process_max_distance(message: Message) -> None:
+    chat_id = message.chat.id
+    max_distance = round(float(message.text), 2)
+    if max_distance <= 0 or max_distance > MAX_DISTANCE:
+        bot.send_message(chat_id, "Incorrect max distance!")
+        return
+
+    with bot.retrieve_data(chat_id) as data:
+        data['max_distance'] = max_distance
+
     render_start_date(chat_id)
 
 
@@ -203,7 +267,7 @@ def message_reply(message: Message):
 def callback_calendar(call):
     # print('calendar func')
     chat_id = call.message.chat.id
-    state = get_user_state(chat_id)
+    state = get_user_state(bot, chat_id)
     min_date = date.today()
     if state == UserStates.end_date.name:
         min_date += timedelta(days=1)
@@ -225,7 +289,7 @@ def callback_calendar(call):
 def callback_worker(call):
     # print('callback_worker func')
     chat_id = call.message.chat.id
-    state = get_user_state(chat_id)
+    state = get_user_state(bot, chat_id)
     if state == UserStates.select_city.name:
         bot.register_next_step_handler(call.message, process_select_city)
     elif state == UserStates.hotel_count.name:
@@ -264,11 +328,3 @@ def save_end_date(message: Message, result: date):
     with bot.retrieve_data(chat_id) as data:
         data["end_date"] = end_date_str
     process_end_date(message)
-
-
-def get_sort(command: str) -> str:
-    if command == 'lowprice':
-        return "PRICE_LOW_TO_HIGH"
-    elif command == "highprice":
-        return "PRICE_HIGH_TO_LOW"
-    return ""
